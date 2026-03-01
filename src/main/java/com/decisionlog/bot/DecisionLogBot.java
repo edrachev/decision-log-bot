@@ -48,6 +48,8 @@ public class DecisionLogBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
+        log.info("Update received: updateId={}", update.getUpdateId());
+
         if (!update.hasMessage() || !update.getMessage().hasText()) {
             return;
         }
