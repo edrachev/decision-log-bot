@@ -3,7 +3,10 @@
     "allow": [
       "Bash(mvn:*)",
       "Bash(cmd.exe:*)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(JAVA_HOME=/c/Users/edrac/.jdks/temurin-23.0.1 /c/Users/edrac/apache-maven-3.9.12/bin/mvn test:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)"
     ]
   }
 }
