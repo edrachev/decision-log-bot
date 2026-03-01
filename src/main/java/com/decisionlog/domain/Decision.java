@@ -15,8 +15,7 @@ import java.time.LocalDateTime;
 public class Decision {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "decision_seq")
-    @SequenceGenerator(name = "decision_seq", sequenceName = "decision_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, columnDefinition = "TEXT")

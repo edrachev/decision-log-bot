@@ -1,33 +1,11 @@
 version: '3.9'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: decision-log-postgres
-    environment:
-      POSTGRES_DB: decisionlog
-      POSTGRES_USER: decisionlog
-      POSTGRES_PASSWORD: decisionlog
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U decisionlog -d decisionlog"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   bot:
-    build: .
+    image: ${DOCKERHUB_USERNAME}/decision-log-bot:latest
     container_name: decision-log-bot
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
-      DATABASE_URL: jdbc:postgresql://postgres:5432/decisionlog
-      DATABASE_USER: decisionlog
-      DATABASE_PASSWORD: decisionlog
+      DATABASE_PATH: /data/decisionlog.db
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
@@ -35,7 +13,9 @@ services:
       PORT: 8080
     ports:
       - "8080:8080"
+    volumes:
+      - sqlite_data:/data
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  sqlite_data:

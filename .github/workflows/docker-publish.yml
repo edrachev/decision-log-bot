@@ -1,4 +1,4 @@
-name: Build and Publish Docker Image
+name: Build, Publish and Deploy
 
 on:
   push:
@@ -56,9 +56,26 @@ jobs:
     needs: build-and-push
 
     steps:
-      - name: Trigger CapRover redeploy
-        run: |
-          curl --silent --fail --show-error -X POST \
-            "${{ secrets.CAPROVER_URL }}/api/v2/user/apps/webhooks/triggerbuild" \
-            -H "Content-Type: application/json" \
-            -d "{\"namespace\":\"captain\",\"appToken\":\"${{ secrets.CAPROVER_APP_TOKEN }}\"}"
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: docker-compose.yml
+          target: /opt/decision-log-bot/
+
+      - name: Deploy on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/decision-log-bot
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
