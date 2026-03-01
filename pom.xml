@@ -45,6 +45,13 @@
             <artifactId>hibernate-community-dialects</artifactId>
         </dependency>
 
+        <!-- JAXB — требуется telegrambots, удалён из JDK начиная с Java 11 -->
+        <dependency>
+            <groupId>javax.xml.bind</groupId>
+            <artifactId>jaxb-api</artifactId>
+            <version>2.3.1</version>
+        </dependency>
+
         <!-- Telegram Bots -->
         <dependency>
             <groupId>org.telegram</groupId>

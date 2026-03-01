@@ -1,7 +1,9 @@
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
+    && mkdir -p /data && chown appuser:appgroup /data
+
 USER appuser
 
 # JAR собирается в CI перед docker build
