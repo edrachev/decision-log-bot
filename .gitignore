@@ -9,6 +9,9 @@ target/
 .vscode/
 *.class
 
+# Claude Code
+.claude/
+
 # Secrets — никогда не коммитить!
 .env
 
