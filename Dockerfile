@@ -1,3 +1,12 @@
+FROM maven:3.9-eclipse-temurin-21-alpine AS build
+WORKDIR /app
+
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+COPY src ./src
+RUN mvn package -DskipTests -q
+
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
@@ -6,8 +15,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup \
 
 USER appuser
 
-# JAR собирается в CI перед docker build
-COPY target/decision-log-bot-*.jar app.jar
+COPY --from=build /app/target/decision-log-bot-*.jar app.jar
 
 EXPOSE 8080
 

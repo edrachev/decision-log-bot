@@ -92,10 +92,7 @@ public class DecisionLogBot extends TelegramLongPollingBot {
             return viewHandler.handle(chatId, extractArgs(text, "/view"));
         }
         if (text.startsWith("/reflect")) {
-            String args = extractArgs(text, "/reflect");
-            if (!args.isBlank()) {
-                return reflectHandler.handleCommand(chatId, args);
-            }
+            return reflectHandler.handleCommand(chatId, extractArgs(text, "/reflect"));
         }
         if (text.startsWith("/cancel")) {
             conversationService.reset();
