@@ -9,15 +9,15 @@ import com.decisionlog.domain.ConversationState;
 import com.decisionlog.service.ConversationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.bots.TelegramWebhookBot;
-import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 @Slf4j
 @Component
-public class DecisionLogBot extends TelegramWebhookBot {
+public class DecisionLogBot extends TelegramLongPollingBot {
 
     private final BotConfig config;
     private final ConversationService conversationService;
@@ -47,14 +47,9 @@ public class DecisionLogBot extends TelegramWebhookBot {
     }
 
     @Override
-    public String getBotPath() {
-        return config.getUsername();
-    }
-
-    @Override
-    public BotApiMethod<?> onWebhookUpdateReceived(Update update) {
+    public void onUpdateReceived(Update update) {
         if (!update.hasMessage() || !update.getMessage().hasText()) {
-            return null;
+            return;
         }
 
         Message message = update.getMessage();
@@ -63,17 +58,17 @@ public class DecisionLogBot extends TelegramWebhookBot {
 
         if (userId != config.getAllowedUserId()) {
             log.warn("Unauthorized access attempt from userId={}", userId);
-            return deny(chatId);
+            send(deny(chatId));
+            return;
         }
 
         String text = message.getText().trim();
         log.info("Received message from userId={}: {}", userId, text);
 
-        return route(chatId, text);
+        send(route(chatId, text));
     }
 
-    private BotApiMethod<?> route(long chatId, String text) {
-        // Команды всегда имеют приоритет и сбрасывают текущий диалог
+    SendMessage route(long chatId, String text) {
         if (text.startsWith("/start") || text.startsWith("/help")) {
             conversationService.reset();
             return help(chatId);
@@ -90,7 +85,6 @@ public class DecisionLogBot extends TelegramWebhookBot {
         if (text.startsWith("/reflect")) {
             String args = extractArgs(text, "/reflect");
             if (!args.isBlank()) {
-                // Команда с аргументом — начинаем диалог
                 return reflectHandler.handleCommand(chatId, args);
             }
         }
@@ -99,7 +93,6 @@ public class DecisionLogBot extends TelegramWebhookBot {
             return plain(chatId, "Отменено. Что делаем дальше?");
         }
 
-        // Продолжение активного диалога
         ConversationState state = conversationService.getState();
         if (state == ConversationState.WAITING_CONTEXT
                 || state == ConversationState.WAITING_DECISION
@@ -112,6 +105,14 @@ public class DecisionLogBot extends TelegramWebhookBot {
         }
 
         return help(chatId);
+    }
+
+    private void send(SendMessage message) {
+        try {
+            execute(message);
+        } catch (TelegramApiException e) {
+            log.error("Failed to send message: {}", e.getMessage());
+        }
     }
 
     private SendMessage help(long chatId) {
@@ -154,7 +155,6 @@ public class DecisionLogBot extends TelegramWebhookBot {
     private String extractArgs(String text, String command) {
         if (text.length() <= command.length()) return "";
         String rest = text.substring(command.length()).trim();
-        // Убираем @botusername если есть
         if (rest.startsWith("@")) {
             int spaceIdx = rest.indexOf(' ');
             if (spaceIdx < 0) return "";

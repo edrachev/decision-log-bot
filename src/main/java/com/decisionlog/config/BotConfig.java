@@ -14,9 +14,6 @@ public class BotConfig {
     @Value("${telegram.bot.username}")
     private String username;
 
-    @Value("${telegram.bot.webhook-url}")
-    private String webhookUrl;
-
     @Value("${telegram.bot.allowed-user-id}")
     private long allowedUserId;
 }

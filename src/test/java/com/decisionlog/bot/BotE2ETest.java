@@ -4,40 +4,36 @@ import com.decisionlog.service.ConversationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.transaction.annotation.Transactional;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.generics.BotSession;
+import org.telegram.telegrambots.meta.generics.LongPollingBot;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 @ActiveProfiles("test")
-@Transactional
 class BotE2ETest {
 
     @Autowired
-    private MockMvc mockMvc;
+    private DecisionLogBot bot;
 
     @Autowired
     private ConversationService conversationService;
 
-    // Мокируем регистратор — чтобы не обращался к Telegram API при старте
-    @MockBean
-    private WebhookRegistrar webhookRegistrar;
+    // Мокируем BotSession — чтобы polling не стартовал при поднятии контекста
+    @MockBean(name = "botSession")
+    private BotSession botSession;
 
     private static final long ALLOWED_USER = 12345L;
     private static final long UNKNOWN_USER  = 99999L;
 
     @BeforeEach
-    void resetConversation() {
+    void reset() {
         conversationService.reset();
     }
 
@@ -46,10 +42,9 @@ class BotE2ETest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void unauthorizedUser_isRejected() throws Exception {
-        send("/start", UNKNOWN_USER)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value("Доступ запрещён."));
+    void unauthorizedUser_isRejected() {
+        SendMessage response = bot.route(UNKNOWN_USER, "/start");
+        assertThat(response.getText()).isEqualTo("Доступ запрещён.");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -57,26 +52,20 @@ class BotE2ETest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void addCommand_startsConversationAndAsksForContext() throws Exception {
-        send("/add", ALLOWED_USER)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Шаг 1/3")));
+    void addCommand_startsConversationAndAsksForContext() {
+        SendMessage response = bot.route(ALLOWED_USER, "/add");
+        assertThat(response.getText()).contains("Шаг 1/3");
     }
 
     @Test
-    void fullAddFlow_savesDecisionAndConfirms() throws Exception {
-        send("/add", ALLOWED_USER)
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Шаг 1/3")));
+    void fullAddFlow_savesDecisionAndConfirms() {
+        assertThat(bot.route(ALLOWED_USER, "/add").getText()).contains("Шаг 1/3");
+        assertThat(bot.route(ALLOWED_USER, "Команда растёт").getText()).contains("Шаг 2/3");
+        assertThat(bot.route(ALLOWED_USER, "Внедрить 1-on-1").getText()).contains("Шаг 3/3");
 
-        send("Команда растёт, нужно выстроить процессы", ALLOWED_USER)
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Шаг 2/3")));
-
-        send("Внедрить еженедельные 1-on-1", ALLOWED_USER)
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Шаг 3/3")));
-
-        send("Повысить вовлечённость и выявить проблемы раньше", ALLOWED_USER)
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("сохранено")))
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("/reflect")));
+        SendMessage result = bot.route(ALLOWED_USER, "Повысить вовлечённость");
+        assertThat(result.getText()).contains("сохранено");
+        assertThat(result.getText()).contains("/reflect");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -84,10 +73,9 @@ class BotE2ETest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void listCommand_whenNoDecisions_showsEmptyHint() throws Exception {
-        send("/list", ALLOWED_USER)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("/add")));
+    void listCommand_whenNoDecisions_showsEmptyHint() {
+        SendMessage response = bot.route(ALLOWED_USER, "/list");
+        assertThat(response.getText()).contains("/add");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -95,17 +83,15 @@ class BotE2ETest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void viewCommand_nonExistentId_returnsNotFound() throws Exception {
-        send("/view 999", ALLOWED_USER)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("не найдено")));
+    void viewCommand_nonExistentId_returnsNotFound() {
+        SendMessage response = bot.route(ALLOWED_USER, "/view 999");
+        assertThat(response.getText()).contains("не найдено");
     }
 
     @Test
-    void viewCommand_invalidId_returnsError() throws Exception {
-        send("/view abc", ALLOWED_USER)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Некорректный id")));
+    void viewCommand_invalidId_returnsError() {
+        SendMessage response = bot.route(ALLOWED_USER, "/view abc");
+        assertThat(response.getText()).contains("Некорректный id");
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -113,44 +99,11 @@ class BotE2ETest {
     // ──────────────────────────────────────────────────────────────────────────
 
     @Test
-    void cancelCommand_duringSddFlow_resetsConversation() throws Exception {
-        send("/add", ALLOWED_USER);
-        send("некий контекст", ALLOWED_USER);
+    void cancelCommand_duringAddFlow_resetsConversation() {
+        bot.route(ALLOWED_USER, "/add");
+        bot.route(ALLOWED_USER, "какой-то контекст");
 
-        send("/cancel", ALLOWED_USER)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Отменено")));
-
-        // После отмены — снова /add начинает с нуля
-        send("/add", ALLOWED_USER)
-                .andExpect(jsonPath("$.text").value(org.hamcrest.Matchers.containsString("Шаг 1/3")));
-    }
-
-    // ──────────────────────────────────────────────────────────────────────────
-    // Helper
-    // ──────────────────────────────────────────────────────────────────────────
-
-    private ResultActions send(String text, long userId) throws Exception {
-        String body = update(text, userId);
-        return mockMvc.perform(
-                post("/testbot")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body)
-        );
-    }
-
-    private String update(String text, long userId) {
-        return """
-                {
-                  "update_id": 1,
-                  "message": {
-                    "message_id": 1,
-                    "from": { "id": %d, "first_name": "Test", "is_bot": false },
-                    "chat": { "id": %d, "type": "private" },
-                    "text": "%s",
-                    "date": 1700000000
-                  }
-                }
-                """.formatted(userId, userId, text);
+        assertThat(bot.route(ALLOWED_USER, "/cancel").getText()).contains("Отменено");
+        assertThat(bot.route(ALLOWED_USER, "/add").getText()).contains("Шаг 1/3");
     }
 }
