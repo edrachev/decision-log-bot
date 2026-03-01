@@ -65,7 +65,14 @@ public class DecisionLogBot extends TelegramLongPollingBot {
         String text = message.getText().trim();
         log.info("Received message from userId={}: {}", userId, text);
 
-        send(route(chatId, text));
+        send(handle(userId, chatId, text));
+    }
+
+    SendMessage handle(long userId, long chatId, String text) {
+        if (userId != config.getAllowedUserId()) {
+            return deny(chatId);
+        }
+        return route(chatId, text);
     }
 
     SendMessage route(long chatId, String text) {

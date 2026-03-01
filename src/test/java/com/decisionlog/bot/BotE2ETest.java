@@ -43,7 +43,7 @@ class BotE2ETest {
 
     @Test
     void unauthorizedUser_isRejected() {
-        SendMessage response = bot.route(UNKNOWN_USER, "/start");
+        SendMessage response = bot.handle(UNKNOWN_USER, UNKNOWN_USER, "/start");
         assertThat(response.getText()).isEqualTo("Доступ запрещён.");
     }
 
@@ -53,17 +53,17 @@ class BotE2ETest {
 
     @Test
     void addCommand_startsConversationAndAsksForContext() {
-        SendMessage response = bot.route(ALLOWED_USER, "/add");
+        SendMessage response = bot.handle(ALLOWED_USER, ALLOWED_USER, "/add");
         assertThat(response.getText()).contains("Шаг 1/3");
     }
 
     @Test
     void fullAddFlow_savesDecisionAndConfirms() {
-        assertThat(bot.route(ALLOWED_USER, "/add").getText()).contains("Шаг 1/3");
-        assertThat(bot.route(ALLOWED_USER, "Команда растёт").getText()).contains("Шаг 2/3");
-        assertThat(bot.route(ALLOWED_USER, "Внедрить 1-on-1").getText()).contains("Шаг 3/3");
+        assertThat(bot.handle(ALLOWED_USER, ALLOWED_USER, "/add").getText()).contains("Шаг 1/3");
+        assertThat(bot.handle(ALLOWED_USER, ALLOWED_USER, "Команда растёт").getText()).contains("Шаг 2/3");
+        assertThat(bot.handle(ALLOWED_USER, ALLOWED_USER, "Внедрить 1-on-1").getText()).contains("Шаг 3/3");
 
-        SendMessage result = bot.route(ALLOWED_USER, "Повысить вовлечённость");
+        SendMessage result = bot.handle(ALLOWED_USER, ALLOWED_USER, "Повысить вовлечённость");
         assertThat(result.getText()).contains("сохранено");
         assertThat(result.getText()).contains("/reflect");
     }
@@ -74,7 +74,7 @@ class BotE2ETest {
 
     @Test
     void listCommand_whenNoDecisions_showsEmptyHint() {
-        SendMessage response = bot.route(ALLOWED_USER, "/list");
+        SendMessage response = bot.handle(ALLOWED_USER, ALLOWED_USER, "/list");
         assertThat(response.getText()).contains("/add");
     }
 
@@ -84,13 +84,13 @@ class BotE2ETest {
 
     @Test
     void viewCommand_nonExistentId_returnsNotFound() {
-        SendMessage response = bot.route(ALLOWED_USER, "/view 999");
+        SendMessage response = bot.handle(ALLOWED_USER, ALLOWED_USER, "/view 999");
         assertThat(response.getText()).contains("не найдено");
     }
 
     @Test
     void viewCommand_invalidId_returnsError() {
-        SendMessage response = bot.route(ALLOWED_USER, "/view abc");
+        SendMessage response = bot.handle(ALLOWED_USER, ALLOWED_USER, "/view abc");
         assertThat(response.getText()).contains("Некорректный id");
     }
 
@@ -100,10 +100,10 @@ class BotE2ETest {
 
     @Test
     void cancelCommand_duringAddFlow_resetsConversation() {
-        bot.route(ALLOWED_USER, "/add");
-        bot.route(ALLOWED_USER, "какой-то контекст");
+        bot.handle(ALLOWED_USER, ALLOWED_USER, "/add");
+        bot.handle(ALLOWED_USER, ALLOWED_USER, "какой-то контекст");
 
-        assertThat(bot.route(ALLOWED_USER, "/cancel").getText()).contains("Отменено");
-        assertThat(bot.route(ALLOWED_USER, "/add").getText()).contains("Шаг 1/3");
+        assertThat(bot.handle(ALLOWED_USER, ALLOWED_USER, "/cancel").getText()).contains("Отменено");
+        assertThat(bot.handle(ALLOWED_USER, ALLOWED_USER, "/add").getText()).contains("Шаг 1/3");
     }
 }
