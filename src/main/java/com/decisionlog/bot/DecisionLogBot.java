@@ -63,7 +63,7 @@ public class DecisionLogBot extends TelegramLongPollingBot {
         }
 
         String text = message.getText().trim();
-        log.info("Received message from userId={}: {}", userId, text);
+        log.debug("Incoming message: userId={}, chatId={}, text=\"{}\"", userId, chatId, text);
 
         send(handle(userId, chatId, text));
     }
